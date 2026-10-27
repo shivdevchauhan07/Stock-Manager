@@ -17,6 +17,8 @@ type Product = {
   id: number | string;
   name: string;
   sku: string | null;
+  category: string | null;
+  supplier: string | null;
   price: number;
   quantity: number;
   low_stock_threshold: number;
@@ -86,6 +88,10 @@ function AppHome() {
   const [activities, setActivities] = useState<Activity[] | null>(null);
   const [searchText, setSearchText] = useState('');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [categories, setCategories] = useState<string[] | null>(null);
+  const [suppliers, setSuppliers] = useState<string[] | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [loading, setLoading] = useState({ products: true, summary: true, activity: true });
   const [errors, setErrors] = useState<{ products?: string; summary?: string; activity?: string; mutation?: string }>({});
@@ -101,15 +107,21 @@ function AppHome() {
     setLoading((state) => ({ ...state, products: true }));
     setErrors((state) => ({ ...state, products: undefined }));
     try {
-      const query = search ? `?q=${encodeURIComponent(search)}` : '';
-      const result = await api<{ products: Product[] }>(`/products${query}`);
+      const params = new URLSearchParams();
+      if (search) params.set('q', search);
+      if (categoryFilter) params.set('category', categoryFilter);
+      if (supplierFilter) params.set('supplier', supplierFilter);
+      const query = params.size ? `?${params.toString()}` : '';
+      const result = await api<{ products: Product[]; categories: string[]; suppliers: string[] }>(`/products${query}`);
       setProducts(result.products);
+      setCategories(result.categories);
+      setSuppliers(result.suppliers);
     } catch (error) {
       setErrors((state) => ({ ...state, products: error instanceof Error ? error.message : 'Could not load products.' }));
     } finally {
       setLoading((state) => ({ ...state, products: false }));
     }
-  }, [search]);
+  }, [search, categoryFilter, supplierFilter]);
 
   const loadSummary = useCallback(async () => {
     setLoading((state) => ({ ...state, summary: true }));
@@ -150,6 +162,8 @@ function AppHome() {
     const payload = {
       name: String(data.get('name') ?? '').trim(),
       sku: String(data.get('sku') ?? '').trim(),
+      category: String(data.get('category') ?? '').trim(),
+      supplier: String(data.get('supplier') ?? '').trim(),
       price: Number(data.get('price')),
       low_stock_threshold: Number(data.get('low_stock_threshold')),
       ...(modal.type === 'create' ? { quantity: Number(data.get('quantity')) } : {}),
@@ -219,6 +233,7 @@ function AppHome() {
 
   const lowCount = summary?.low_stock_count ?? null;
   const listedCount = products?.length;
+  const hasProductFilters = Boolean(search || categoryFilter || supplierFilter);
   const today = useMemo(() => new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()), []);
 
   return (
@@ -286,27 +301,39 @@ function AppHome() {
             <section className="panel" id="inventory">
               <div className="panel-header">
                 <div><h2 className="panel-title">Your products</h2><div className="panel-caption">{listedCount == null ? 'A practical view of everything you carry' : `${number(listedCount)} ${listedCount === 1 ? 'item' : 'items'} in this view`}</div></div>
-                <label className="searchbox"><Search size={15} /><input type="search" value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search name or SKU" aria-label="Search products" data-testid="input-product-search" /></label>
+                <div className="product-controls">
+                  <label className="searchbox"><Search size={15} /><input type="search" value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search name, SKU, category or supplier" aria-label="Search products" data-testid="input-product-search" /></label>
+                  <select className="product-filter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="Filter by category" data-testid="filter-product-category">
+                    <option value="">All categories</option>
+                    {(categories ?? []).map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                  <select className="product-filter" value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter by supplier" data-testid="filter-product-supplier">
+                    <option value="">All suppliers</option>
+                    {(suppliers ?? []).map((supplier) => <option key={supplier} value={supplier}>{supplier}</option>)}
+                  </select>
+                </div>
               </div>
               {errors.products ? (
                 <div className="empty-state"><div className="empty-illustration"><AlertCircle size={20} /></div><h3>Products did not load</h3><p>{errors.products}</p><button className="button button-secondary" onClick={() => void loadProducts()} data-testid="button-retry-products">Try again</button></div>
               ) : loading.products && !products ? <ProductSkeleton /> : products?.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-illustration"><ShoppingBag size={20} /></div>
-                  <h3>{search ? 'No matching products' : 'Your shelves are ready'}</h3>
-                  <p>{search ? 'Try another product name or SKU.' : 'Add the items you sell to see stock levels, value, and movement all in one place.'}</p>
-                  {!search && <button className="button button-primary" onClick={() => setModal({ type: 'create' })} data-testid="button-empty-add"><Plus size={15} /> Add your first product</button>}
+                  <h3>{hasProductFilters ? 'No matching products' : 'Your shelves are ready'}</h3>
+                  <p>{hasProductFilters ? 'Try another search or clear one of the filters.' : 'Add the items you sell to see stock levels, value, and movement all in one place.'}</p>
+                  {!hasProductFilters && <button className="button button-primary" onClick={() => setModal({ type: 'create' })} data-testid="button-empty-add"><Plus size={15} /> Add your first product</button>}
                 </div>
               ) : (
                 <>
                   <div className="table-scroll">
                     <table className="product-table">
-                      <thead><tr><th>Product</th><th>Price</th><th>In stock</th><th>Threshold</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+                      <thead><tr><th>Product</th><th>Category</th><th>Supplier</th><th>Price</th><th>In stock</th><th>Threshold</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
                       <tbody>
                         {products?.map((product) => {
                           const isLow = Number(product.quantity) <= Number(product.low_stock_threshold);
                           return <tr key={product.id} data-testid={`row-product-${product.id}`}>
                             <td><span className="product-name">{product.name}</span><span className="sku">{product.sku || 'No SKU'}</span></td>
+                            <td>{product.category || '—'}</td>
+                            <td>{product.supplier || '—'}</td>
                             <td className="money">{money(product.price)}</td>
                             <td><span className={`stock-badge ${isLow ? 'low' : ''}`}><i className="stock-dot" />{number(product.quantity)}</span></td>
                             <td className="quantity">{number(product.low_stock_threshold)}</td>
@@ -320,7 +347,7 @@ function AppHome() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="table-footer"><span>{search ? `Results for “${search}”` : 'Inventory overview'}</span><span>Updated just now</span></div>
+                  <div className="table-footer"><span>{hasProductFilters ? 'Filtered products' : 'Inventory overview'}</span><span>Updated just now</span></div>
                 </>
               )}
             </section>
@@ -380,8 +407,8 @@ function SummaryCard({ icon, title, value, note, attention = false }: { icon: Re
 }
 
 function ProductSkeleton() {
-  return <div className="table-scroll"><table className="product-table"><thead><tr><th>Product</th><th>Price</th><th>In stock</th><th>Threshold</th><th>Actions</th></tr></thead><tbody>
-    {[0, 1, 2, 3].map((item) => <tr className="skeleton-row" key={item}><td><div className="skeleton skeleton-line" /><div className="skeleton skeleton-line" style={{ width: '37%', marginTop: 8 }} /></td><td><div className="skeleton skeleton-line" /></td><td><div className="skeleton skeleton-line" /></td><td><div className="skeleton skeleton-line" /></td><td /></tr>)}
+  return <div className="table-scroll"><table className="product-table"><thead><tr><th>Product</th><th>Category</th><th>Supplier</th><th>Price</th><th>In stock</th><th>Threshold</th><th>Actions</th></tr></thead><tbody>
+    {[0, 1, 2, 3].map((item) => <tr className="skeleton-row" key={item}><td><div className="skeleton skeleton-line" /><div className="skeleton skeleton-line" style={{ width: '37%', marginTop: 8 }} /></td><td><div className="skeleton skeleton-line" /></td><td><div className="skeleton skeleton-line" /></td><td><div className="skeleton skeleton-line" /></td><td><div className="skeleton skeleton-line" /></td><td><div className="skeleton skeleton-line" /></td><td /></tr>)}
   </tbody></table></div>;
 }
 
@@ -394,6 +421,8 @@ function ProductForm({ mode, product, onSubmit, onClose, error, busy }: {
       <div className="field full"><label htmlFor="product-name">Product name</label><input id="product-name" name="name" required maxLength={120} placeholder="e.g. Canvas tote bag" defaultValue={product?.name ?? ''} data-testid="input-product-name" /></div>
        <div className="field"><label htmlFor="product-sku">SKU <span className="field-hint">(optional)</span></label><input id="product-sku" name="sku" maxLength={40} placeholder="e.g. BAG-014" defaultValue={product?.sku ?? ''} data-testid="input-product-sku" /></div>
        <div className="field"><label htmlFor="product-price">Unit price (₹)</label><input id="product-price" name="price" type="number" min="0" step="0.01" required placeholder="0.00" defaultValue={product?.price ?? ''} data-testid="input-product-price" /></div>
+       <div className="field"><label htmlFor="product-category">Category <span className="field-hint">(optional)</span></label><input id="product-category" name="category" maxLength={80} placeholder="e.g. Accessories" defaultValue={product?.category ?? ''} data-testid="input-product-category" /></div>
+       <div className="field"><label htmlFor="product-supplier">Supplier <span className="field-hint">(optional)</span></label><input id="product-supplier" name="supplier" maxLength={120} placeholder="e.g. Northside Goods" defaultValue={product?.supplier ?? ''} data-testid="input-product-supplier" /></div>
       {mode === 'create' && <div className="field"><label htmlFor="product-quantity">Starting quantity</label><input id="product-quantity" name="quantity" type="number" min="0" step="1" required placeholder="0" defaultValue="0" data-testid="input-product-quantity" /></div>}
       <div className={`field ${mode === 'edit' ? '' : ''}`}><label htmlFor="product-threshold">Low stock alert at</label><input id="product-threshold" name="low_stock_threshold" type="number" min="0" step="1" required placeholder="5" defaultValue={product?.low_stock_threshold ?? 5} data-testid="input-product-threshold" /><span className="field-hint">We’ll flag it when stock reaches this level.</span></div>
     </div>

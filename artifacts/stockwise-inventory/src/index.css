@@ -139,8 +139,12 @@ h1 { margin: 7px 0 0; font: 700 clamp(26px, 3vw, 34px)/1.1 var(--app-font-serif)
 .searchbox { display: flex; align-items: center; gap: 8px; height: 36px; width: min(240px, 38vw); border: 1px solid #e5e3da; padding: 0 10px; border-radius: 8px; color: #8b9387; background: #fffef9; }
 .searchbox input { width: 100%; border: 0; outline: 0; color: #39483d; background: transparent; font-size: 11px; }
 .searchbox input::placeholder { color: #a5aaa0; }
+.product-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.product-controls .searchbox { width: min(255px, 24vw); }
+.product-filter { height: 36px; max-width: 150px; border: 1px solid #e5e3da; padding: 0 9px; border-radius: 8px; color: #657267; background: #fffef9; font-size: 11px; }
+.product-filter:focus { outline: 0; border-color: #6c9077; box-shadow: 0 0 0 3px #6c90771c; }
 .table-scroll { overflow-x: auto; }
-.product-table { width: 100%; border-collapse: collapse; text-align: left; }
+.product-table { width: 100%; min-width: 790px; border-collapse: collapse; text-align: left; }
 .product-table th { height: 38px; padding: 0 15px; border-top: 1px solid #eceae1; border-bottom: 1px solid #eceae1; color: #9a9e93; background: #f7f6ef; font-size: 9px; letter-spacing: .8px; text-transform: uppercase; white-space: nowrap; }
 .product-table th:first-child, .product-table td:first-child { padding-left: 20px; }
 .product-table td { height: 64px; padding: 9px 15px; border-bottom: 1px solid #eeece4; color: #556156; font-size: 12px; white-space: nowrap; }
@@ -235,8 +239,11 @@ h1 { margin: 7px 0 0; font: 700 clamp(26px, 3vw, 34px)/1.1 var(--app-font-serif)
   .activity-panel { order: 2; }
   .panel-header { padding: 16px 15px 13px; flex-direction: column; }
   .searchbox { width: 100%; }
+  .product-controls { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .product-controls .searchbox { width: 100%; grid-column: 1 / -1; }
+  .product-filter { max-width: none; width: 100%; }
   .table-scroll { overflow-x: auto; }
-  .product-table { min-width: 670px; }
+  .product-table { min-width: 790px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *:before, *:after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }

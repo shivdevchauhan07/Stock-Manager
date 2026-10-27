@@ -2,7 +2,8 @@
 
 A small inventory app for practicing Python, Flask, SQLite, and a web interface.
 You can add and edit products, record stock received or sold, search the catalog,
-and see low-stock alerts and inventory totals.
+and see low-stock alerts and inventory totals. Products can also be organized by
+category and supplier, then searched or filtered by either value.
 
 ## Run it in Replit
 
@@ -64,8 +65,8 @@ README.md            Setup instructions and project guide
 
 ## Beginner notes
 
-- A **product** stores its name, optional SKU, price, current quantity, and the
-  quantity level that triggers a low-stock alert.
+- A **product** stores its name, optional SKU, category, supplier, price, current
+  quantity, and the quantity level that triggers a low-stock alert.
 - Prices are displayed in Indian rupees (₹); the numeric price can be changed
   in the product form.
 - A **stock movement** records stock being received or sold. Sales cannot exceed
@@ -74,6 +75,9 @@ README.md            Setup instructions and project guide
 - `app.py` defines the web API. `database.py` creates and reads the SQLite tables.
 - To change how many units trigger an alert, edit a product and change its
   low-stock level.
+- Category and supplier are optional text fields that can be changed when
+  editing a product. Use the product search to find either value, or choose a
+  category or supplier filter above the product list.
 - To start with an empty database, stop the app and delete
   `artifacts/stockwise-inventory/backend/inventory.db`. The next launch recreates
   the example products. This permanently removes the products and stock history

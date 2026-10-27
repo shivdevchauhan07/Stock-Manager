@@ -47,6 +47,17 @@ def optional_sku(value: Any) -> str | None:
     return result
 
 
+def optional_text(value: Any, label: str, max_length: int) -> str | None:
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be text.")
+    result = value.strip()
+    if len(result) > max_length:
+        raise ValueError(f"{label} must be {max_length} characters or fewer.")
+    return result
+
+
 def non_negative_number(value: Any, label: str) -> float:
     if isinstance(value, bool):
         raise ValueError(f"{label} must be a number.")
@@ -77,6 +88,8 @@ def product_values(body: dict[str, Any], *, include_quantity: bool) -> dict[str,
     values = {
         "name": required_text(body.get("name"), "Product name"),
         "sku": optional_sku(body.get("sku")),
+        "category": optional_text(body.get("category"), "Category", 80),
+        "supplier": optional_text(body.get("supplier"), "Supplier", 120),
         "price": non_negative_number(body.get("price"), "Price"),
         "low_stock_threshold": whole_number(
             body.get("low_stock_threshold", 5), "Low-stock level"
@@ -101,21 +114,53 @@ def health():
 @app.get(f"{API_PREFIX}/products")
 def list_products():
     search = request.args.get("q", "").strip()
+    category = request.args.get("category", "").strip()
+    supplier = request.args.get("supplier", "").strip()
+    conditions = []
+    parameters: list[str] = []
+    if search:
+        conditions.append(
+            """
+            (name LIKE ? COLLATE NOCASE
+                OR COALESCE(sku, '') LIKE ? COLLATE NOCASE
+                OR COALESCE(category, '') LIKE ? COLLATE NOCASE
+                OR COALESCE(supplier, '') LIKE ? COLLATE NOCASE)
+            """
+        )
+        search_pattern = f"%{search}%"
+        parameters.extend([search_pattern] * 4)
+    if category:
+        conditions.append("category = ? COLLATE NOCASE")
+        parameters.append(category)
+    if supplier:
+        conditions.append("supplier = ? COLLATE NOCASE")
+        parameters.append(supplier)
+
     with connect() as connection:
-        if search:
-            rows = connection.execute(
-                """
-                SELECT * FROM products
-                WHERE name LIKE ? COLLATE NOCASE OR COALESCE(sku, '') LIKE ? COLLATE NOCASE
-                ORDER BY name COLLATE NOCASE
-                """,
-                (f"%{search}%", f"%{search}%"),
-            ).fetchall()
-        else:
-            rows = connection.execute(
-                "SELECT * FROM products ORDER BY name COLLATE NOCASE"
-            ).fetchall()
-    return jsonify({"products": [product_to_dict(row) for row in rows]})
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        rows = connection.execute(
+            f"SELECT * FROM products {where_clause} ORDER BY name COLLATE NOCASE",
+            parameters,
+        ).fetchall()
+        categories = connection.execute(
+            """
+            SELECT DISTINCT category COLLATE NOCASE AS category FROM products
+            WHERE category IS NOT NULL AND TRIM(category) != ''
+            ORDER BY category COLLATE NOCASE
+            """
+        ).fetchall()
+        suppliers = connection.execute(
+            """
+            SELECT DISTINCT supplier COLLATE NOCASE AS supplier FROM products
+            WHERE supplier IS NOT NULL AND TRIM(supplier) != ''
+            ORDER BY supplier COLLATE NOCASE
+            """
+        ).fetchall()
+    return jsonify({
+        "products": [product_to_dict(row) for row in rows],
+        "categories": [row["category"] for row in categories],
+        "suppliers": [row["supplier"] for row in suppliers],
+    })
 
 
 @app.post(f"{API_PREFIX}/products")
@@ -125,8 +170,10 @@ def create_product():
         with connect() as connection:
             cursor = connection.execute(
                 """
-                INSERT INTO products (name, sku, price, quantity, low_stock_threshold)
-                VALUES (:name, :sku, :price, :quantity, :low_stock_threshold)
+                INSERT INTO products
+                    (name, sku, price, quantity, low_stock_threshold, category, supplier)
+                VALUES
+                    (:name, :sku, :price, :quantity, :low_stock_threshold, :category, :supplier)
                 """,
                 values,
             )
@@ -159,6 +206,7 @@ def update_product(product_id: int):
                 """
                 UPDATE products
                 SET name = :name, sku = :sku, price = :price,
+                    category = :category, supplier = :supplier,
                     low_stock_threshold = :low_stock_threshold,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id

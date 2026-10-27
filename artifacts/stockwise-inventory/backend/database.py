@@ -45,6 +45,8 @@ def initialize_database() -> None:
                 quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
                 low_stock_threshold INTEGER NOT NULL DEFAULT 5
                     CHECK (low_stock_threshold >= 0),
+                category TEXT,
+                supplier TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
@@ -63,6 +65,15 @@ def initialize_database() -> None:
             """
         )
 
+        product_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(products)").fetchall()
+        }
+        if "category" not in product_columns:
+            connection.execute("ALTER TABLE products ADD COLUMN category TEXT")
+        if "supplier" not in product_columns:
+            connection.execute("ALTER TABLE products ADD COLUMN supplier TEXT")
+
         product_count = connection.execute(
             "SELECT COUNT(*) FROM products"
         ).fetchone()[0]
@@ -71,18 +82,18 @@ def initialize_database() -> None:
         ).fetchone()
         if product_count == 0 and product_history is None:
             examples = [
-                ("Ceramic coffee mug", "MUG-001", 14.50, 24, 6),
-                ("Canvas tote bag", "BAG-014", 22.00, 12, 4),
-                ("Desk plant", "HOME-008", 18.75, 3, 5),
-                ("Notebook set", "PAP-022", 9.99, 32, 8),
-                ("Insulated bottle", "BOT-006", 28.00, 0, 5),
+                ("Ceramic coffee mug", "MUG-001", 14.50, 24, 6, "Homeware", "Clay & Co."),
+                ("Canvas tote bag", "BAG-014", 22.00, 12, 4, "Accessories", "Everyday Goods"),
+                ("Desk plant", "HOME-008", 18.75, 3, 5, "Homeware", "Greenhouse Supply"),
+                ("Notebook set", "PAP-022", 9.99, 32, 8, "Stationery", "Paper Trail"),
+                ("Insulated bottle", "BOT-006", 28.00, 0, 5, "Accessories", "Everyday Goods"),
             ]
             for example in examples:
                 cursor = connection.execute(
                     """
                     INSERT INTO products
-                        (name, sku, price, quantity, low_stock_threshold)
-                    VALUES (?, ?, ?, ?, ?)
+                        (name, sku, price, quantity, low_stock_threshold, category, supplier)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     example,
                 )
