@@ -16,6 +16,10 @@ out-tsc
 
 # dependencies
 node_modules
+.pythonlibs/
+.venv/
+__pycache__/
+*.py[cod]
 
 # IDEs and editors
 /.idea
@@ -53,3 +57,4 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+artifacts/stockwise-inventory/backend/inventory.db
