@@ -114,3 +114,27 @@ def product_to_dict(row: sqlite3.Row) -> dict:
     product["price"] = round(float(product["price"]), 2)
     product["is_low_stock"] = product["quantity"] <= product["low_stock_threshold"]
     return product
+
+
+def export_data() -> tuple[list[dict], list[dict]]:
+    """Read the current inventory and the eight latest stock movements."""
+    with connect() as connection:
+        products = connection.execute(
+            """
+            SELECT name, sku, price, quantity, low_stock_threshold
+            FROM products
+            ORDER BY name COLLATE NOCASE
+            """
+        ).fetchall()
+        movements = connection.execute(
+            """
+            SELECT products.name AS product_name, products.sku,
+                   stock_movements.movement_type, stock_movements.quantity,
+                   stock_movements.note, stock_movements.created_at
+            FROM stock_movements
+            JOIN products ON products.id = stock_movements.product_id
+            ORDER BY stock_movements.id DESC
+            LIMIT 8
+            """
+        ).fetchall()
+    return [dict(row) for row in products], [dict(row) for row in movements]

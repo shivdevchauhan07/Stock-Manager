@@ -5,11 +5,13 @@ from __future__ import annotations
 import math
 import os
 import sqlite3
+import csv
+from io import StringIO
 from typing import Any
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
-from database import connect, initialize_database, product_to_dict
+from database import connect, export_data, initialize_database, product_to_dict
 
 
 app = Flask(__name__)
@@ -109,6 +111,60 @@ def find_product(connection: sqlite3.Connection, product_id: int):
 @app.get(f"{API_PREFIX}/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.get(f"{API_PREFIX}/export.csv")
+def export_csv():
+    products, movements = export_data()
+    output = StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow([
+        "Record Type",
+        "Product Name",
+        "SKU",
+        "Price",
+        "Quantity",
+        "Low Stock Alert Level",
+        "Movement Type",
+        "Movement Quantity",
+        "Movement Note",
+        "Movement Date",
+    ])
+    for product in products:
+        writer.writerow([
+            "Product",
+            product["name"],
+            product["sku"] or "",
+            product["price"],
+            product["quantity"],
+            product["low_stock_threshold"],
+            "",
+            "",
+            "",
+            "",
+        ])
+    for movement in movements:
+        writer.writerow([
+            "Movement",
+            movement["product_name"],
+            movement["sku"] or "",
+            "",
+            "",
+            "",
+            movement["movement_type"],
+            movement["quantity"],
+            movement["note"] or "",
+            movement["created_at"],
+        ])
+
+    response = Response(
+        "\ufeff" + output.getvalue(),
+        content_type="text/csv; charset=utf-8",
+    )
+    response.headers["Content-Disposition"] = (
+        'attachment; filename="stockwise-inventory.csv"'
+    )
+    return response
 
 
 @app.get(f"{API_PREFIX}/products")

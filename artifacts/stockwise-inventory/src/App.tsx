@@ -7,7 +7,7 @@ import NotFound from '@/pages/not-found';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import {
   AlertCircle, ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Boxes, Check,
-  CircleHelp, Clock3, DollarSign, LayoutDashboard, LoaderCircle, Package, Pencil,
+  CircleHelp, Clock3, DollarSign, Download, LayoutDashboard, LoaderCircle, Package, Pencil,
   Plus, Search, ShoppingBag, Trash2, TrendingDown, X,
 } from 'lucide-react';
 
@@ -277,9 +277,14 @@ function AppHome() {
               <h1>Good to see you.</h1>
               <p className="page-subtitle">Here’s where your inventory stands today.</p>
             </div>
-            <button className="button button-primary" onClick={() => { setErrors((state) => ({ ...state, mutation: undefined })); setModal({ type: 'create' }); }} data-testid="button-add-product">
-              <Plus size={16} /> Add a product
-            </button>
+            <div className="page-heading-actions">
+              <a className="button button-secondary" href="/stock-api/export.csv" download data-testid="button-export-csv">
+                <Download size={15} /> Export CSV
+              </a>
+              <button className="button button-primary" onClick={() => { setErrors((state) => ({ ...state, mutation: undefined })); setModal({ type: 'create' }); }} data-testid="button-add-product">
+                <Plus size={16} /> Add a product
+              </button>
+            </div>
           </div>
 
           {(errors.summary || errors.products || errors.activity) && (
